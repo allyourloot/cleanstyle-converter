@@ -72,7 +72,12 @@ export const processHTML = (htmlString: string): string => {
   try {
     // Create a DOM parser
     const parser = new DOMParser();
-    const doc = parser.parseFromString(htmlString, 'text/html');
+    // Wrap the HTML in a body tag if it's not a complete HTML document
+    const wrappedHTML = htmlString.trim().toLowerCase().startsWith('<!doctype html') || 
+                        htmlString.trim().toLowerCase().startsWith('<html') ? 
+                        htmlString : `<body>${htmlString}</body>`;
+    
+    const doc = parser.parseFromString(wrappedHTML, 'text/html');
     
     // Remove all inline styles from all elements
     const allElements = doc.getElementsByTagName('*');
@@ -161,7 +166,12 @@ export const generateStyledHTML = (htmlString: string): string => {
   try {
     // Create a DOM parser
     const parser = new DOMParser();
-    const doc = parser.parseFromString(htmlString, 'text/html');
+    // Wrap the HTML in a body tag if it doesn't have one
+    const wrappedHTML = htmlString.trim().toLowerCase().startsWith('<!doctype html') || 
+                        htmlString.trim().toLowerCase().startsWith('<html') ? 
+                        htmlString : `<body>${htmlString}</body>`;
+                        
+    const doc = parser.parseFromString(wrappedHTML, 'text/html');
     
     // Apply class to the root to get our CSS styling
     const body = doc.getElementsByTagName('body')[0];
@@ -169,21 +179,45 @@ export const generateStyledHTML = (htmlString: string): string => {
       body.setAttribute('class', 'html-preview');
     }
     
-    // Ensure tables have data-label attributes for responsive design
+    // Also check for and process existing tables to ensure they have data-label attributes
     const tables = doc.getElementsByTagName('table');
     for (let i = 0; i < tables.length; i++) {
       const table = tables[i];
-      const headers = table.getElementsByTagName('th');
-      const rows = table.getElementsByTagName('tr');
+      table.setAttribute('class', 'specifications-table');
       
-      // Get header texts
-      const headerTexts: string[] = [];
-      for (let j = 0; j < headers.length; j++) {
-        headerTexts.push(headers[j].textContent || `Column ${j+1}`);
+      // Get header cells - from thead if exists, otherwise first row
+      let headerCells: HTMLCollectionOf<Element> | Element[] = [];
+      const thead = table.getElementsByTagName('thead')[0];
+      if (thead) {
+        headerCells = thead.getElementsByTagName('th');
+      } else {
+        const firstRow = table.getElementsByTagName('tr')[0];
+        if (firstRow) {
+          headerCells = firstRow.getElementsByTagName('th').length > 0 ? 
+                        firstRow.getElementsByTagName('th') : 
+                        firstRow.getElementsByTagName('td');
+        }
       }
       
-      // Apply data-label to each cell
-      for (let j = 1; j < rows.length; j++) { // Skip header row
+      // Extract header texts
+      const headerTexts: string[] = [];
+      for (let j = 0; j < headerCells.length; j++) {
+        headerTexts.push(headerCells[j].textContent || `Column ${j+1}`);
+      }
+      
+      // If no header row was found, create default header texts
+      if (headerTexts.length === 0 && table.getElementsByTagName('tr').length > 0) {
+        const firstRowCells = table.getElementsByTagName('tr')[0].getElementsByTagName('td');
+        for (let j = 0; j < firstRowCells.length; j++) {
+          headerTexts.push(`Column ${j+1}`);
+        }
+      }
+      
+      // Apply data-label to each cell in data rows
+      const rows = table.getElementsByTagName('tr');
+      const startRow = thead ? 0 : 1; // Skip first row if no thead and first row used as header
+      
+      for (let j = startRow; j < rows.length; j++) {
         const cells = rows[j].getElementsByTagName('td');
         for (let k = 0; k < cells.length; k++) {
           if (k < headerTexts.length) {
@@ -193,7 +227,7 @@ export const generateStyledHTML = (htmlString: string): string => {
       }
     }
     
-    return body ? body.innerHTML : htmlString;
+    return doc.getElementsByTagName('body')[0]?.innerHTML || htmlString;
   } catch (error) {
     console.error('Error generating styled HTML:', error);
     return htmlString; // Return original if error
