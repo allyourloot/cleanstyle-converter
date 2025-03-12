@@ -2,18 +2,20 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { ClipboardCopy, Eye } from 'lucide-react';
+import { ClipboardCopy, Eye, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ConversionPreviewProps {
   html: string;
   rawHtml: string;
+  error?: string | null;
   className?: string;
 }
 
 const ConversionPreview: React.FC<ConversionPreviewProps> = ({
   html,
   rawHtml,
+  error,
   className
 }) => {
   const copyToClipboard = () => {
@@ -52,7 +54,18 @@ const ConversionPreview: React.FC<ConversionPreviewProps> = ({
       </div>
       
       <div className="p-6 h-full overflow-auto">
-        {html ? (
+        {error ? (
+          <div className="flex flex-col items-center justify-center text-center h-[300px] animate-fade-in">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-w-md">
+              <div className="flex items-center mb-2">
+                <AlertTriangle size={20} className="text-red-500 mr-2" />
+                <h3 className="text-red-800 font-medium">Conversion Error</h3>
+              </div>
+              <p className="text-red-600 text-sm">{error}</p>
+              <p className="text-xs text-red-500 mt-2">Try adjusting your HTML input or using the example.</p>
+            </div>
+          </div>
+        ) : html ? (
           <div 
             className="html-preview animate-fade-in"
             dangerouslySetInnerHTML={{ __html: html }}

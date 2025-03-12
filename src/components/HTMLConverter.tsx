@@ -13,29 +13,32 @@ const HTMLConverter: React.FC = () => {
   const [processedHTML, setProcessedHTML] = useState('');
   const [styledHTML, setStyledHTML] = useState('');
   const [isConverting, setIsConverting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Process HTML when the convert button is clicked
   const handleConvert = () => {
-    if (!inputHTML.trim()) {
+    if (!inputHTML || !inputHTML.trim()) {
       toast.warning('Please paste some HTML first');
       return;
     }
 
+    setError(null);
     setIsConverting(true);
+    setProcessedHTML('');
+    setStyledHTML('');
     
     // Use setTimeout to allow UI to update before processing
     setTimeout(() => {
       try {
         console.log('Starting HTML conversion process...');
-        console.log('Input HTML length:', inputHTML.length);
         
         // First processing step - strip styles and structure
         const processed = processHTML(inputHTML);
-        console.log('Processed HTML length:', processed.length);
         
         if (!processed || processed.trim() === '') {
           console.error('processHTML returned empty content');
           toast.error('Failed to process HTML. Please check your input.');
+          setError('The HTML processor returned empty content. Your input might be invalid HTML or not contain supported elements.');
           setIsConverting(false);
           return;
         }
@@ -43,21 +46,28 @@ const HTMLConverter: React.FC = () => {
         setProcessedHTML(processed);
         
         // Second processing step - apply styling
-        const styled = generateStyledHTML(processed);
-        console.log('Styled HTML length:', styled.length);
-        
-        if (!styled || styled.trim() === '') {
-          console.error('generateStyledHTML returned empty content');
-          toast.error('Failed to generate styled HTML output');
-          setIsConverting(false);
-          return;
+        try {
+          const styled = generateStyledHTML(processed);
+          
+          if (!styled || styled.trim() === '') {
+            console.error('generateStyledHTML returned empty content');
+            toast.error('Failed to generate styled HTML output');
+            setError('The HTML styling process returned empty content. Please try with different HTML input.');
+            setIsConverting(false);
+            return;
+          }
+          
+          setStyledHTML(styled);
+          toast.success('HTML converted successfully');
+        } catch (stylingError) {
+          console.error('Error generating styled HTML:', stylingError);
+          toast.error('Failed to style the processed HTML');
+          setError(`Error styling the HTML: ${stylingError instanceof Error ? stylingError.message : 'Unknown error'}`);
         }
-        
-        setStyledHTML(styled);
-        toast.success('HTML converted successfully');
-      } catch (error) {
-        console.error('Error converting HTML:', error);
+      } catch (processingError) {
+        console.error('Error converting HTML:', processingError);
         toast.error('Failed to convert HTML. Please check your input.');
+        setError(`Error processing the HTML: ${processingError instanceof Error ? processingError.message : 'Unknown error'}`);
       } finally {
         setIsConverting(false);
       }
@@ -68,6 +78,7 @@ const HTMLConverter: React.FC = () => {
     setInputHTML('');
     setProcessedHTML('');
     setStyledHTML('');
+    setError(null);
     toast.info('All content cleared');
   };
 
@@ -93,6 +104,7 @@ const HTMLConverter: React.FC = () => {
     `;
     
     setInputHTML(exampleHTML);
+    setError(null);
     toast.info('Example HTML loaded');
   };
 
@@ -154,6 +166,7 @@ const HTMLConverter: React.FC = () => {
       <ConversionPreview 
         html={styledHTML} 
         rawHtml={processedHTML}
+        error={error}
         className="h-full"
       />
     </div>

@@ -3,6 +3,7 @@ import { DOMParser } from '@xmldom/xmldom';
 
 // Helper to check if text contains product specifications
 const hasProductSpecifications = (text: string): boolean => {
+  if (!text) return false;
   const lowerText = text.toLowerCase();
   return (
     lowerText.includes('product specifications') ||
@@ -70,16 +71,31 @@ const convertSpecListToTable = (listElement: Element): HTMLTableElement => {
 
 export const processHTML = (htmlString: string): string => {
   try {
-    console.log('processHTML input:', htmlString.substring(0, 100) + '...');
+    console.log('Processing HTML input...');
+    
+    // Handle null or undefined input
+    if (!htmlString) {
+      console.error('HTML input is null or undefined');
+      return '';
+    }
+    
+    // Trim the input
+    const trimmedHTML = htmlString.trim();
+    
+    // Handle empty input
+    if (trimmedHTML === '') {
+      console.error('HTML input is empty');
+      return '';
+    }
     
     // Create a DOM parser
     const parser = new DOMParser();
     
     // Wrap the HTML if it's not a complete document
-    let wrappedHTML = htmlString;
-    if (!htmlString.trim().toLowerCase().startsWith('<!doctype html') && 
-        !htmlString.trim().toLowerCase().startsWith('<html')) {
-      wrappedHTML = `<body>${htmlString}</body>`;
+    let wrappedHTML = trimmedHTML;
+    if (!trimmedHTML.toLowerCase().startsWith('<!doctype html') && 
+        !trimmedHTML.toLowerCase().startsWith('<html')) {
+      wrappedHTML = `<body>${trimmedHTML}</body>`;
     }
     
     // Parse the HTML
@@ -87,10 +103,8 @@ export const processHTML = (htmlString: string): string => {
     
     if (!doc) {
       console.error('Failed to parse HTML document');
-      return htmlString;
+      return '';
     }
-    
-    console.log('Document parsed successfully');
     
     // Remove all inline styles from all elements
     const allElements = doc.getElementsByTagName('*');
@@ -177,40 +191,61 @@ export const processHTML = (htmlString: string): string => {
       }
     }
     
+    // Find existing tables and process them
+    const tables = doc.getElementsByTagName('table');
+    for (let i = 0; i < tables.length; i++) {
+      const table = tables[i];
+      // Ensure the table has a clean structure
+      table.removeAttribute('style');
+      table.removeAttribute('class');
+      table.removeAttribute('width');
+      table.removeAttribute('border');
+      table.removeAttribute('cellspacing');
+      table.removeAttribute('cellpadding');
+    }
+    
     // Get the body content
     const bodyContent = doc.getElementsByTagName('body')[0];
     
     if (!bodyContent) {
       console.error('No body element found in the document');
-      return htmlString;
+      return '';
     }
     
-    console.log('processHTML output length:', bodyContent.innerHTML.length);
-    return bodyContent.innerHTML;
+    const result = bodyContent.innerHTML;
+    console.log('HTML processed: ' + (result ? 'Success' : 'Empty result'));
+    return result || '';
   } catch (error) {
     console.error('Error processing HTML:', error);
-    return htmlString; // Return original if error
+    return ''; // Return empty string if error
   }
 };
 
 // Generate HTML with applied styling classes
 export const generateStyledHTML = (htmlString: string): string => {
   try {
-    console.log('generateStyledHTML input length:', htmlString.length);
-    
-    if (!htmlString || htmlString.trim() === '') {
-      console.error('Empty HTML input for styling');
+    // Handle null, undefined or empty input
+    if (!htmlString) {
+      console.error('HTML input for styling is null or undefined');
       return '';
     }
+    
+    const trimmedHTML = htmlString.trim();
+    if (trimmedHTML === '') {
+      console.error('HTML input for styling is empty');
+      return '';
+    }
+    
+    console.log('Generating styled HTML...');
     
     // Create a DOM parser
     const parser = new DOMParser();
     
     // Wrap the HTML in a body tag if it doesn't have one
-    let wrappedHTML = htmlString;
-    if (!htmlString.trim().toLowerCase().startsWith('<!doctype html') && 
-        !htmlString.trim().toLowerCase().startsWith('<html')) {
-      wrappedHTML = `<body>${htmlString}</body>`;
+    let wrappedHTML = trimmedHTML;
+    if (!trimmedHTML.toLowerCase().startsWith('<!doctype html') && 
+        !trimmedHTML.toLowerCase().startsWith('<html')) {
+      wrappedHTML = `<body>${trimmedHTML}</body>`;
     }
     
     // Parse the HTML
@@ -218,14 +253,14 @@ export const generateStyledHTML = (htmlString: string): string => {
     
     if (!doc) {
       console.error('Failed to parse HTML document for styling');
-      return htmlString;
+      return '';
     }
     
     // Apply class to the root to get our CSS styling
     const body = doc.getElementsByTagName('body')[0];
     if (!body) {
       console.error('No body element found in the document for styling');
-      return htmlString;
+      return '';
     }
     
     body.setAttribute('class', 'html-preview');
@@ -298,10 +333,10 @@ export const generateStyledHTML = (htmlString: string): string => {
     
     // Get the content
     const content = body.innerHTML;
-    console.log('generateStyledHTML output length:', content.length);
-    return content;
+    console.log('HTML styled: ' + (content ? 'Success' : 'Empty result'));
+    return content || '';
   } catch (error) {
     console.error('Error generating styled HTML:', error);
-    return htmlString; // Return original if error
+    return ''; // Return empty string if error
   }
 };
