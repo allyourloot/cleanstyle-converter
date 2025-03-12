@@ -26,20 +26,35 @@ const HTMLConverter: React.FC = () => {
     // Use setTimeout to allow UI to update before processing
     setTimeout(() => {
       try {
-        console.log('Processing HTML input...');
+        console.log('Starting HTML conversion process...');
+        console.log('Input HTML length:', inputHTML.length);
+        
+        // First processing step - strip styles and structure
         const processed = processHTML(inputHTML);
-        console.log('HTML processed:', processed ? 'Success' : 'Empty result');
+        console.log('Processed HTML length:', processed.length);
+        
+        if (!processed || processed.trim() === '') {
+          console.error('processHTML returned empty content');
+          toast.error('Failed to process HTML. Please check your input.');
+          setIsConverting(false);
+          return;
+        }
+        
         setProcessedHTML(processed);
         
+        // Second processing step - apply styling
         const styled = generateStyledHTML(processed);
-        console.log('HTML styled:', styled ? 'Success' : 'Empty result');
-        setStyledHTML(styled);
+        console.log('Styled HTML length:', styled.length);
         
         if (!styled || styled.trim() === '') {
+          console.error('generateStyledHTML returned empty content');
           toast.error('Failed to generate styled HTML output');
-        } else {
-          toast.success('HTML converted successfully');
+          setIsConverting(false);
+          return;
         }
+        
+        setStyledHTML(styled);
+        toast.success('HTML converted successfully');
       } catch (error) {
         console.error('Error converting HTML:', error);
         toast.error('Failed to convert HTML. Please check your input.');

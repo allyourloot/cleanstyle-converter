@@ -70,44 +70,67 @@ const convertSpecListToTable = (listElement: Element): HTMLTableElement => {
 
 export const processHTML = (htmlString: string): string => {
   try {
+    console.log('processHTML input:', htmlString.substring(0, 100) + '...');
+    
     // Create a DOM parser
     const parser = new DOMParser();
-    // Wrap the HTML in a body tag if it's not a complete HTML document
-    const wrappedHTML = htmlString.trim().toLowerCase().startsWith('<!doctype html') || 
-                        htmlString.trim().toLowerCase().startsWith('<html') ? 
-                        htmlString : `<body>${htmlString}</body>`;
     
+    // Wrap the HTML if it's not a complete document
+    let wrappedHTML = htmlString;
+    if (!htmlString.trim().toLowerCase().startsWith('<!doctype html') && 
+        !htmlString.trim().toLowerCase().startsWith('<html')) {
+      wrappedHTML = `<body>${htmlString}</body>`;
+    }
+    
+    // Parse the HTML
     const doc = parser.parseFromString(wrappedHTML, 'text/html');
+    
+    if (!doc) {
+      console.error('Failed to parse HTML document');
+      return htmlString;
+    }
+    
+    console.log('Document parsed successfully');
     
     // Remove all inline styles from all elements
     const allElements = doc.getElementsByTagName('*');
     for (let i = 0; i < allElements.length; i++) {
       const element = allElements[i];
-      element.removeAttribute('style');
-      element.removeAttribute('class');
-      element.removeAttribute('id');
-      // Remove any other non-essential attributes
-      const attributesToRemove = ['align', 'bgcolor', 'border', 'cellpadding', 'cellspacing', 'width', 'height'];
-      attributesToRemove.forEach(attr => {
-        element.removeAttribute(attr);
-      });
+      if (element.removeAttribute) {
+        element.removeAttribute('style');
+        element.removeAttribute('class');
+        element.removeAttribute('id');
+        // Remove any other non-essential attributes
+        const attributesToRemove = ['align', 'bgcolor', 'border', 'cellpadding', 'cellspacing', 'width', 'height'];
+        attributesToRemove.forEach(attr => {
+          element.removeAttribute(attr);
+        });
+      }
     }
     
     // Find product specification sections and convert lists to tables
-    const headings = doc.getElementsByTagName('h1');
-    headings.length === 0 && doc.getElementsByTagName('h2');
-    headings.length === 0 && doc.getElementsByTagName('h3');
+    let headings = doc.getElementsByTagName('h2');
+    if (headings.length === 0) {
+      headings = doc.getElementsByTagName('h1');
+    }
+    if (headings.length === 0) {
+      headings = doc.getElementsByTagName('h3');
+    }
     
     for (let i = 0; i < headings.length; i++) {
       const heading = headings[i];
-      if (hasProductSpecifications(heading.textContent || '')) {
+      if (heading.textContent && hasProductSpecifications(heading.textContent)) {
         // Look for the next list after this heading
         let nextElement = heading.nextSibling;
         while (nextElement) {
-          if (nextElement.nodeName.toLowerCase() === 'ul' || nextElement.nodeName.toLowerCase() === 'ol') {
+          if (nextElement.nodeName && 
+              (nextElement.nodeName.toLowerCase() === 'ul' || 
+               nextElement.nodeName.toLowerCase() === 'ol')) {
             // Found a list, convert it to a table
             const table = convertSpecListToTable(nextElement as Element);
-            heading.parentNode?.replaceChild(table, nextElement);
+            if (nextElement.parentNode) {
+              nextElement.parentNode.replaceChild(table, nextElement);
+            }
             break;
           }
           nextElement = nextElement.nextSibling;
@@ -142,19 +165,28 @@ export const processHTML = (htmlString: string): string => {
         }
         
         // If more than half the items follow a spec pattern, consider it a spec list
-        isSpecList = (specPatternCount / items.length) > 0.5;
+        isSpecList = items.length > 0 && (specPatternCount / items.length) > 0.5;
       }
       
       if (isSpecList) {
         const table = convertSpecListToTable(list);
-        list.parentNode?.replaceChild(table, list);
-        i--; // Adjust for the removed element
+        if (list.parentNode) {
+          list.parentNode.replaceChild(table, list);
+          i--; // Adjust for the removed element
+        }
       }
     }
     
-    // Get the body content instead of documentElement
+    // Get the body content
     const bodyContent = doc.getElementsByTagName('body')[0];
-    return bodyContent ? bodyContent.innerHTML : htmlString;
+    
+    if (!bodyContent) {
+      console.error('No body element found in the document');
+      return htmlString;
+    }
+    
+    console.log('processHTML output length:', bodyContent.innerHTML.length);
+    return bodyContent.innerHTML;
   } catch (error) {
     console.error('Error processing HTML:', error);
     return htmlString; // Return original if error
@@ -164,22 +196,41 @@ export const processHTML = (htmlString: string): string => {
 // Generate HTML with applied styling classes
 export const generateStyledHTML = (htmlString: string): string => {
   try {
+    console.log('generateStyledHTML input length:', htmlString.length);
+    
+    if (!htmlString || htmlString.trim() === '') {
+      console.error('Empty HTML input for styling');
+      return '';
+    }
+    
     // Create a DOM parser
     const parser = new DOMParser();
+    
     // Wrap the HTML in a body tag if it doesn't have one
-    const wrappedHTML = htmlString.trim().toLowerCase().startsWith('<!doctype html') || 
-                        htmlString.trim().toLowerCase().startsWith('<html') ? 
-                        htmlString : `<body>${htmlString}</body>`;
-                        
+    let wrappedHTML = htmlString;
+    if (!htmlString.trim().toLowerCase().startsWith('<!doctype html') && 
+        !htmlString.trim().toLowerCase().startsWith('<html')) {
+      wrappedHTML = `<body>${htmlString}</body>`;
+    }
+    
+    // Parse the HTML
     const doc = parser.parseFromString(wrappedHTML, 'text/html');
+    
+    if (!doc) {
+      console.error('Failed to parse HTML document for styling');
+      return htmlString;
+    }
     
     // Apply class to the root to get our CSS styling
     const body = doc.getElementsByTagName('body')[0];
-    if (body) {
-      body.setAttribute('class', 'html-preview');
+    if (!body) {
+      console.error('No body element found in the document for styling');
+      return htmlString;
     }
     
-    // Also check for and process existing tables to ensure they have data-label attributes
+    body.setAttribute('class', 'html-preview');
+    
+    // Process existing tables to ensure they have data-label attributes
     const tables = doc.getElementsByTagName('table');
     for (let i = 0; i < tables.length; i++) {
       const table = tables[i];
@@ -194,8 +245,8 @@ export const generateStyledHTML = (htmlString: string): string => {
         const firstRow = table.getElementsByTagName('tr')[0];
         if (firstRow) {
           headerCells = firstRow.getElementsByTagName('th').length > 0 ? 
-                        firstRow.getElementsByTagName('th') : 
-                        firstRow.getElementsByTagName('td');
+                      firstRow.getElementsByTagName('th') : 
+                      firstRow.getElementsByTagName('td');
         }
       }
       
@@ -227,7 +278,28 @@ export const generateStyledHTML = (htmlString: string): string => {
       }
     }
     
-    return doc.getElementsByTagName('body')[0]?.innerHTML || htmlString;
+    // Enhance paragraphs for better styling
+    const paragraphs = doc.getElementsByTagName('p');
+    for (let i = 0; i < paragraphs.length; i++) {
+      // Check if paragraph is indented or has specific formatting
+      const content = paragraphs[i].textContent || '';
+      if (content.trim().startsWith('-') || content.trim().startsWith('•')) {
+        paragraphs[i].setAttribute('class', 'feature-list-item');
+      }
+    }
+    
+    // Enhance headings
+    const headings = doc.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    for (let i = 0; i < headings.length; i++) {
+      const heading = headings[i] as Element;
+      const level = heading.nodeName.toLowerCase().substring(1);
+      heading.setAttribute('class', `heading-${level}`);
+    }
+    
+    // Get the content
+    const content = body.innerHTML;
+    console.log('generateStyledHTML output length:', content.length);
+    return content;
   } catch (error) {
     console.error('Error generating styled HTML:', error);
     return htmlString; // Return original if error

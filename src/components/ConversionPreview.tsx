@@ -17,6 +17,11 @@ const ConversionPreview: React.FC<ConversionPreviewProps> = ({
   className
 }) => {
   const copyToClipboard = () => {
+    if (!rawHtml || rawHtml.trim() === '') {
+      toast.error('No HTML content to copy');
+      return;
+    }
+    
     navigator.clipboard.writeText(rawHtml)
       .then(() => {
         toast.success('HTML copied to clipboard');
@@ -39,6 +44,7 @@ const ConversionPreview: React.FC<ConversionPreviewProps> = ({
           size="sm"
           className="flex items-center gap-1 text-xs group"
           onClick={copyToClipboard}
+          disabled={!rawHtml}
         >
           <ClipboardCopy size={14} className="opacity-70 group-hover:opacity-100 transition-opacity" />
           <span>Copy HTML</span>
@@ -52,8 +58,8 @@ const ConversionPreview: React.FC<ConversionPreviewProps> = ({
             dangerouslySetInnerHTML={{ __html: html }}
           />
         ) : (
-          <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground animate-fade-in">
-            <p className="text-center max-w-md animate-float">
+          <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground animate-float">
+            <p className="text-center max-w-md">
               Your converted HTML will appear here with clean styling.
             </p>
           </div>
