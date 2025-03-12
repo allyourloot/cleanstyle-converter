@@ -1,11 +1,11 @@
-
-import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
+import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import CodeEditor from './CodeEditor';
 import ConversionPreview from './ConversionPreview';
+import ConversionControls from './html-converter/ConversionControls';
+import ConversionButton from './html-converter/ConversionButton';
+import DebugPanel from './html-converter/DebugPanel';
 import { processHTML, generateStyledHTML, debugHTMLStructure } from '@/lib/htmlProcessor';
-import { ArrowRight, RefreshCw, Trash2, Bug } from 'lucide-react';
 import { toast } from 'sonner';
 
 const HTMLConverter: React.FC = () => {
@@ -16,9 +16,8 @@ const HTMLConverter: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
 
-  // Process HTML when the convert button is clicked
   const handleConvert = () => {
-    if (!inputHTML || !inputHTML.trim()) {
+    if (!inputHTML?.trim()) {
       toast.warning('Please paste some HTML first');
       return;
     }
@@ -29,38 +28,31 @@ const HTMLConverter: React.FC = () => {
     setProcessedHTML('');
     setStyledHTML('');
     
-    // Use setTimeout to allow UI to update before processing
     setTimeout(() => {
       try {
         console.log('Starting HTML conversion process...');
         console.log('Input HTML length:', inputHTML.length);
         
-        // First processing step - strip styles and structure
         const processed = processHTML(inputHTML);
         
-        if (!processed || processed.trim() === '') {
+        if (!processed?.trim()) {
           console.error('processHTML returned empty content');
           toast.error('Failed to process HTML. Please check your input.');
           setError('The HTML processor returned empty content. Your input might be invalid HTML or not contain supported elements.');
-          
-          // Generate debug info
           setDebugInfo(debugHTMLStructure(inputHTML));
-          setIsConverting(false);
           return;
         }
         
         setProcessedHTML(processed);
         console.log('Processed HTML size:', processed.length);
         
-        // Second processing step - apply styling
         try {
           const styled = generateStyledHTML(processed);
           
-          if (!styled || styled.trim() === '') {
+          if (!styled?.trim()) {
             console.error('generateStyledHTML returned empty content');
             toast.error('Failed to generate styled HTML output');
             setError('The HTML styling process returned empty content. Please try with different HTML input.');
-            setIsConverting(false);
             return;
           }
           
@@ -91,7 +83,6 @@ const HTMLConverter: React.FC = () => {
     toast.info('All content cleared');
   };
 
-  // Handle example button click
   const loadExample = () => {
     const exampleHTML = `
 <div style="font-family: Arial; color: #333;">
@@ -132,34 +123,12 @@ const HTMLConverter: React.FC = () => {
         <CardContent className="p-0">
           <div className="flex items-center justify-between p-4 border-b">
             <h3 className="font-semibold text-sm">Input HTML</h3>
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={loadExample}
-                className="text-xs"
-              >
-                Load Example
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleClear}
-                className="text-xs"
-              >
-                <Trash2 size={14} className="mr-1" />
-                Clear
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={toggleDebugInfo}
-                className="text-xs"
-              >
-                <Bug size={14} className="mr-1" />
-                Debug
-              </Button>
-            </div>
+            <ConversionControls
+              inputHTML={inputHTML}
+              onClear={handleClear}
+              onLoadExample={loadExample}
+              onToggleDebug={toggleDebugInfo}
+            />
           </div>
           <div className="p-4">
             <CodeEditor
@@ -167,30 +136,13 @@ const HTMLConverter: React.FC = () => {
               onChange={setInputHTML}
               className="min-h-[300px]"
             />
-            {debugInfo && (
-              <div className="mt-4 p-3 bg-gray-100 rounded text-xs font-mono overflow-auto max-h-[200px]">
-                <h4 className="text-sm font-semibold mb-2">HTML Structure Debug:</h4>
-                <pre>{debugInfo}</pre>
-              </div>
-            )}
+            <DebugPanel debugInfo={debugInfo} />
             <div className="mt-4 flex justify-end">
-              <Button 
-                onClick={handleConvert} 
+              <ConversionButton
+                isConverting={isConverting}
                 disabled={isConverting || !inputHTML.trim()}
-                className="relative overflow-hidden group"
-              >
-                {isConverting ? (
-                  <>
-                    <RefreshCw size={16} className="mr-2 animate-spin" />
-                    Converting...
-                  </>
-                ) : (
-                  <>
-                    Convert
-                    <ArrowRight size={16} className="ml-2 group-hover:translate-x-1 transition-transform" />
-                  </>
-                )}
-              </Button>
+                onClick={handleConvert}
+              />
             </div>
           </div>
         </CardContent>
