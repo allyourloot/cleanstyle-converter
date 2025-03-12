@@ -21,43 +21,52 @@ export const processHTML = (htmlString: string): string => {
     
     // Function to clean an element of all attributes except specific ones to keep
     const cleanElement = (element: Element) => {
+      if (!element || !element.attributes) return;
+      
       const attributesToKeep = ['src', 'width', 'height', 'type']; // Keep essential attributes for embeds
-      const attributes = Array.from(element.attributes);
+      const attributes = Array.from(element.attributes || []);
       
       // Remove all attributes except those we want to keep
       attributes.forEach(attr => {
-        if (!attributesToKeep.includes(attr.name)) {
+        if (attr && attr.name && !attributesToKeep.includes(attr.name)) {
           element.removeAttribute(attr.name);
         }
       });
       
       // Clean child elements recursively
-      const children = Array.from(element.childNodes);
-      children.forEach(child => {
-        if (child.nodeType === 1) { // Element node
-          cleanElement(child as Element);
-        }
-      });
+      if (element.childNodes) {
+        const children = Array.from(element.childNodes);
+        children.forEach(child => {
+          if (child && child.nodeType === 1) { // Element node
+            cleanElement(child as Element);
+          }
+        });
+      }
     };
     
     // Get the root wrapper and clean all its children
-    const rootWrapper = doc.documentElement.getElementsByClassName('root-wrapper')[0];
+    const rootWrapper = doc.documentElement;
     if (!rootWrapper) {
-      console.error('Could not find root wrapper element');
+      console.error('Could not find root element');
       return '';
     }
     
-    Array.from(rootWrapper.getElementsByTagName('*')).forEach(cleanElement);
+    const allElements = rootWrapper.getElementsByTagName('*');
+    if (allElements) {
+      Array.from(allElements).forEach(cleanElement);
+    }
     
     // Get the processed content from inside the wrapper
-    const result = rootWrapper.innerHTML;
-    console.log('HTML processed successfully. Result length:', result.length);
+    const wrapperDiv = rootWrapper.getElementsByClassName('root-wrapper')[0];
+    const result = wrapperDiv ? wrapperDiv.innerHTML : '';
+    
+    console.log('HTML processed successfully. Result length:', result ? result.length : 0);
     
     if (!result || result.trim() === '') {
       console.error('processHTML returned empty content despite successful processing');
     }
     
-    return result;
+    return result || '';
   } catch (error) {
     console.error('Error in processHTML:', error);
     throw error;
@@ -95,30 +104,35 @@ export const generateStyledHTML = (htmlString: string): string => {
       'embed': 'max-w-full'
     };
     
-    // Get the root wrapper
-    const rootWrapper = doc.documentElement.getElementsByClassName('root-wrapper')[0];
+    // Apply styles to elements
+    const rootWrapper = doc.documentElement;
     if (!rootWrapper) {
-      console.error('Could not find root wrapper element for styling');
+      console.error('Could not find root element for styling');
       return '';
     }
     
-    // Apply styles to elements
     Object.entries(elementStyles).forEach(([tag, className]) => {
       const elements = rootWrapper.getElementsByTagName(tag);
-      Array.from(elements).forEach(element => {
-        element.setAttribute('class', className);
-      });
+      if (elements) {
+        Array.from(elements).forEach(element => {
+          if (element) {
+            element.setAttribute('class', className);
+          }
+        });
+      }
     });
     
     // Get the styled content from inside the wrapper
-    const result = rootWrapper.innerHTML;
-    console.log('HTML styled successfully. Result length:', result.length);
+    const wrapperDiv = rootWrapper.getElementsByClassName('root-wrapper')[0];
+    const result = wrapperDiv ? wrapperDiv.innerHTML : '';
+    
+    console.log('HTML styled successfully. Result length:', result ? result.length : 0);
     
     if (!result || result.trim() === '') {
       console.error('generateStyledHTML returned empty content despite successful processing');
     }
     
-    return result;
+    return result || '';
   } catch (error) {
     console.error('Error in generateStyledHTML:', error);
     throw error;
