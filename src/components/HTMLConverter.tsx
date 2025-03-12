@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import CodeEditor from './CodeEditor';
 import ConversionPreview from './ConversionPreview';
-import { processHTML, generateStyledHTML } from '@/lib/htmlProcessor';
-import { ArrowRight, RefreshCw, Trash2 } from 'lucide-react';
+import { processHTML, generateStyledHTML, debugHTMLStructure } from '@/lib/htmlProcessor';
+import { ArrowRight, RefreshCw, Trash2, Bug } from 'lucide-react';
 import { toast } from 'sonner';
 
 const HTMLConverter: React.FC = () => {
@@ -14,6 +14,7 @@ const HTMLConverter: React.FC = () => {
   const [styledHTML, setStyledHTML] = useState('');
   const [isConverting, setIsConverting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string | null>(null);
 
   // Process HTML when the convert button is clicked
   const handleConvert = () => {
@@ -23,6 +24,7 @@ const HTMLConverter: React.FC = () => {
     }
 
     setError(null);
+    setDebugInfo(null);
     setIsConverting(true);
     setProcessedHTML('');
     setStyledHTML('');
@@ -39,11 +41,15 @@ const HTMLConverter: React.FC = () => {
           console.error('processHTML returned empty content');
           toast.error('Failed to process HTML. Please check your input.');
           setError('The HTML processor returned empty content. Your input might be invalid HTML or not contain supported elements.');
+          
+          // Generate debug info
+          setDebugInfo(debugHTMLStructure(inputHTML));
           setIsConverting(false);
           return;
         }
         
         setProcessedHTML(processed);
+        console.log('Processed HTML:', processed);
         
         // Second processing step - apply styling
         try {
@@ -58,6 +64,7 @@ const HTMLConverter: React.FC = () => {
           }
           
           setStyledHTML(styled);
+          console.log('Styled HTML result ready');
           toast.success('HTML converted successfully');
         } catch (stylingError) {
           console.error('Error generating styled HTML:', stylingError);
@@ -79,6 +86,7 @@ const HTMLConverter: React.FC = () => {
     setProcessedHTML('');
     setStyledHTML('');
     setError(null);
+    setDebugInfo(null);
     toast.info('All content cleared');
   };
 
@@ -105,7 +113,16 @@ const HTMLConverter: React.FC = () => {
     
     setInputHTML(exampleHTML);
     setError(null);
+    setDebugInfo(null);
     toast.info('Example HTML loaded');
+  };
+
+  const toggleDebugInfo = () => {
+    if (!debugInfo && inputHTML) {
+      setDebugInfo(debugHTMLStructure(inputHTML));
+    } else {
+      setDebugInfo(null);
+    }
   };
 
   return (
@@ -132,6 +149,15 @@ const HTMLConverter: React.FC = () => {
                 <Trash2 size={14} className="mr-1" />
                 Clear
               </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={toggleDebugInfo}
+                className="text-xs"
+              >
+                <Bug size={14} className="mr-1" />
+                Debug
+              </Button>
             </div>
           </div>
           <div className="p-4">
@@ -140,6 +166,12 @@ const HTMLConverter: React.FC = () => {
               onChange={setInputHTML}
               className="min-h-[300px]"
             />
+            {debugInfo && (
+              <div className="mt-4 p-3 bg-gray-100 rounded text-xs font-mono overflow-auto max-h-[200px]">
+                <h4 className="text-sm font-semibold mb-2">HTML Structure Debug:</h4>
+                <pre>{debugInfo}</pre>
+              </div>
+            )}
             <div className="mt-4 flex justify-end">
               <Button 
                 onClick={handleConvert} 
