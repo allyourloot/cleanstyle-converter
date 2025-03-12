@@ -33,6 +33,7 @@ const HTMLConverter: React.FC = () => {
     setTimeout(() => {
       try {
         console.log('Starting HTML conversion process...');
+        console.log('Input HTML length:', inputHTML.length);
         
         // First processing step - strip styles and structure
         const processed = processHTML(inputHTML);
@@ -49,7 +50,7 @@ const HTMLConverter: React.FC = () => {
         }
         
         setProcessedHTML(processed);
-        console.log('Processed HTML:', processed);
+        console.log('Processed HTML size:', processed.length);
         
         // Second processing step - apply styling
         try {
@@ -64,7 +65,7 @@ const HTMLConverter: React.FC = () => {
           }
           
           setStyledHTML(styled);
-          console.log('Styled HTML result ready');
+          console.log('Styled HTML result ready, size:', styled.length);
           toast.success('HTML converted successfully');
         } catch (stylingError) {
           console.error('Error generating styled HTML:', stylingError);

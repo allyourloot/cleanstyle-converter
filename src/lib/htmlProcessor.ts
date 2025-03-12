@@ -10,62 +10,49 @@ export const processHTML = (htmlString: string): string => {
       return '';
     }
     
-    // Wrap the input in a container to ensure proper parsing
-    const wrappedHTML = `<div>${htmlString}</div>`;
+    // Create a more robust parser setup
     const parser = new DOMParser();
+    // Wrap in proper HTML structure
+    const wrappedHTML = `<!DOCTYPE html><html><body>${htmlString}</body></html>`;
     const doc = parser.parseFromString(wrappedHTML, 'text/html');
     
-    // Function to clean an element
-    const cleanElement = (element: Element): void => {
-      if (!element) return;
+    const body = doc.getElementsByTagName('body')[0];
+    if (!body) {
+      console.error('No body element found in parsed document');
+      return '';
+    }
+    
+    // Convert NodeList to Array for easier processing
+    const processNode = (node) => {
+      if (!node) return;
       
-      // Remove style attribute safely
-      if (element.hasAttribute && element.hasAttribute('style')) {
-        element.removeAttribute('style');
-      }
-      
-      // Process child elements recursively
-      const childNodes = element.childNodes || [];
-      for (let i = 0; i < childNodes.length; i++) {
-        const child = childNodes[i];
-        if (child && child.nodeType === 1) { // Element node
-          cleanElement(child as Element);
+      // Handle element nodes
+      if (node.nodeType === 1) { // Element node
+        // Remove style attributes
+        if (node.hasAttribute && node.hasAttribute('style')) {
+          node.removeAttribute('style');
         }
+        
+        // Process children
+        const childNodes = Array.from(node.childNodes || []);
+        childNodes.forEach(child => processNode(child));
       }
     };
     
-    // Get the body or document element
-    const body = doc.getElementsByTagName('body')[0] || doc.documentElement;
+    // Process all children of body to remove styles
+    const bodyChildren = Array.from(body.childNodes || []);
+    bodyChildren.forEach(child => processNode(child));
     
-    if (!body) {
-      console.error('No body element found');
+    // Get the processed HTML from inside the body
+    const bodyContent = body.toString().replace(/<body[^>]*>|<\/body>/g, '');
+    
+    if (!bodyContent || bodyContent.trim() === '') {
+      console.error('Processing resulted in empty content');
       return '';
     }
     
-    // Get the content (our wrapped div)
-    const contentDiv = body.childNodes[0];
-    
-    if (!contentDiv) {
-      console.error('No content found in the body');
-      return '';
-    }
-    
-    // Clean all elements starting from our content div
-    cleanElement(contentDiv as Element);
-    
-    // Get the processed inner HTML
-    const result = contentDiv.toString();
-    
-    // Extract just the inner content from our wrapper div
-    const cleanedHTML = result.replace(/<div>|<\/div>/g, '').trim();
-    
-    if (!cleanedHTML || cleanedHTML.trim() === '') {
-      console.error('Cleaning resulted in empty content');
-      return '';
-    }
-    
-    console.log('HTML processed successfully. Result:', cleanedHTML);
-    return cleanedHTML;
+    console.log('Processed HTML successfully', bodyContent.length);
+    return bodyContent;
   } catch (error) {
     console.error('Error in processHTML:', error);
     throw error;
@@ -79,74 +66,89 @@ export const generateStyledHTML = (htmlString: string): string => {
       return '';
     }
     
-    // Wrap the input in a container to ensure proper parsing
-    const wrappedHTML = `<div>${htmlString}</div>`;
+    // Create a properly structured document for manipulation
     const parser = new DOMParser();
+    const wrappedHTML = `<!DOCTYPE html><html><body>${htmlString}</body></html>`;
     const doc = parser.parseFromString(wrappedHTML, 'text/html');
     
-    // Simple styling function
-    const addStyles = (element: Element): void => {
-      if (!element || !element.tagName) return;
-      
-      const tagName = element.tagName.toLowerCase();
-      
-      // Apply classes based on tag name
-      if (tagName === 'h1') {
-        element.setAttribute('class', 'text-4xl font-bold mb-6 font-montserrat');
-      } else if (tagName === 'h2') {
-        element.setAttribute('class', 'text-2xl font-semibold mb-4 mt-8 font-montserrat');
-      } else if (tagName === 'p') {
-        element.setAttribute('class', 'mb-4 leading-relaxed');
-      } else if (tagName === 'table') {
-        element.setAttribute('class', 'w-full border-collapse mb-8');
-      } else if (tagName === 'td') {
-        element.setAttribute('class', 'border px-4 py-2');
-      } else if (tagName === 'th') {
-        element.setAttribute('class', 'border px-4 py-2 bg-gray-50 font-semibold');
-      }
-      
-      // Process children recursively
-      const childNodes = element.childNodes || [];
-      for (let i = 0; i < childNodes.length; i++) {
-        const child = childNodes[i];
-        if (child && child.nodeType === 1) {
-          addStyles(child as Element);
-        }
-      }
-    };
-    
-    // Get the body or document element
-    const body = doc.getElementsByTagName('body')[0] || doc.documentElement;
-    
+    const body = doc.getElementsByTagName('body')[0];
     if (!body) {
       console.error('No body element found for styling');
       return '';
     }
     
-    // Get the content (our wrapped div)
-    const contentDiv = body.childNodes[0];
+    // Recursive function to add styles
+    const addStyles = (node) => {
+      if (!node || node.nodeType !== 1) return; // Only process element nodes
+      
+      const tagName = node.tagName?.toLowerCase();
+      
+      // Handle special cases for embed and iframe
+      if (tagName === 'embed' || tagName === 'iframe') {
+        // Preserve these elements but wrap in a responsive container
+        const parent = node.parentNode;
+        if (parent) {
+          // Add responsive wrapper class
+          parent.setAttribute('class', 'responsive-embed mb-6');
+        }
+      }
+      // Apply classes based on tag name
+      else if (tagName === 'h1') {
+        node.setAttribute('class', 'text-4xl font-bold mb-6 font-montserrat');
+      } else if (tagName === 'h2') {
+        node.setAttribute('class', 'text-3xl font-semibold mb-4 mt-8 font-montserrat');
+      } else if (tagName === 'h3') {
+        node.setAttribute('class', 'text-2xl font-semibold mb-4 mt-6 font-montserrat');
+      } else if (tagName === 'h4') {
+        node.setAttribute('class', 'text-xl font-semibold mb-3 mt-6 font-montserrat');
+      } else if (tagName === 'p') {
+        // Look for indentation in the original style
+        if (node.toString().includes('padding-left: 30px')) {
+          node.setAttribute('class', 'mb-4 leading-relaxed pl-8');
+        } else if (node.toString().includes('padding-left: 60px')) {
+          node.setAttribute('class', 'mb-4 leading-relaxed pl-16');
+        } else {
+          node.setAttribute('class', 'mb-4 leading-relaxed');
+        }
+      } else if (tagName === 'center') {
+        node.setAttribute('class', 'flex justify-center mb-6');
+      } else if (tagName === 'ul') {
+        node.setAttribute('class', 'list-disc pl-8 mb-6 space-y-2');
+      } else if (tagName === 'ol') {
+        node.setAttribute('class', 'list-decimal pl-8 mb-6 space-y-2');
+      } else if (tagName === 'li') {
+        node.setAttribute('class', 'mb-1');
+      } else if (tagName === 'strong' || tagName === 'b') {
+        node.setAttribute('class', 'font-semibold');
+      } else if (tagName === 'em' || tagName === 'i') {
+        node.setAttribute('class', 'italic');
+      } else if (tagName === 'table') {
+        node.setAttribute('class', 'w-full border-collapse mb-8');
+      } else if (tagName === 'td') {
+        node.setAttribute('class', 'border px-4 py-2');
+      } else if (tagName === 'th') {
+        node.setAttribute('class', 'border px-4 py-2 bg-gray-50 font-semibold');
+      }
+      
+      // Process children recursively
+      const childNodes = Array.from(node.childNodes || []);
+      childNodes.forEach(child => addStyles(child));
+    };
     
-    if (!contentDiv) {
-      console.error('No content found in the body for styling');
-      return '';
-    }
+    // Process all children of body to add styles
+    const bodyChildren = Array.from(body.childNodes || []);
+    bodyChildren.forEach(child => addStyles(child));
     
-    // Add styles to all elements starting from our content div
-    addStyles(contentDiv as Element);
+    // Get the styled HTML from inside the body
+    const styledContent = body.toString().replace(/<body[^>]*>|<\/body>/g, '');
     
-    // Get the styled inner HTML
-    const result = contentDiv.toString();
-    
-    // Extract just the inner content from our wrapper div
-    const styledHTML = result.replace(/<div>|<\/div>/g, '').trim();
-    
-    if (!styledHTML || styledHTML.trim() === '') {
+    if (!styledContent || styledContent.trim() === '') {
       console.error('Styling resulted in empty content');
       return '';
     }
     
-    console.log('HTML styled successfully. Result:', styledHTML);
-    return styledHTML;
+    console.log('HTML styled successfully, length:', styledContent.length);
+    return styledContent;
   } catch (error) {
     console.error('Error in generateStyledHTML:', error);
     throw error;
@@ -159,8 +161,8 @@ export const debugHTMLStructure = (htmlString: string): string => {
       return 'Empty HTML input';
     }
     
-    const wrappedHTML = `<div>${htmlString}</div>`;
     const parser = new DOMParser();
+    const wrappedHTML = `<!DOCTYPE html><html><body>${htmlString}</body></html>`;
     const doc = parser.parseFromString(wrappedHTML, 'text/html');
     
     // Simple function to get element structure
@@ -202,21 +204,22 @@ export const debugHTMLStructure = (htmlString: string): string => {
       return result;
     };
     
-    // Get the first element (inside our wrapper div)
-    const body = doc.getElementsByTagName('body')[0] || doc.documentElement;
-    if (!body || !body.childNodes || body.childNodes.length === 0) {
+    // Get the body content structure
+    const body = doc.getElementsByTagName('body')[0];
+    if (!body) {
       return 'No content found';
     }
     
-    const contentDiv = body.childNodes[0];
-    if (!contentDiv || !contentDiv.childNodes || contentDiv.childNodes.length === 0) {
-      return 'No elements found inside wrapper';
+    // Build structure for all immediate children of body
+    let result = '';
+    for (let i = 0; i < body.childNodes.length; i++) {
+      const child = body.childNodes[i];
+      if (child && child.nodeType === 1) {
+        result += getStructure(child as Element);
+      }
     }
     
-    // Get the first actual content element
-    const firstElement = contentDiv.childNodes[0];
-    
-    return firstElement ? getStructure(firstElement as Element) : 'No elements found';
+    return result || 'No elements found';
   } catch (error) {
     return `Error debugging HTML: ${error}`;
   }
