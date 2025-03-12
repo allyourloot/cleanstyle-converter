@@ -1,3 +1,4 @@
+
 import { DOMParser } from '@xmldom/xmldom';
 
 // Helper to check if text contains product specifications
@@ -146,8 +147,9 @@ export const processHTML = (htmlString: string): string => {
       }
     }
     
-    // Return the processed HTML
-    return doc.documentElement.outerHTML;
+    // Get the body content instead of documentElement
+    const bodyContent = doc.getElementsByTagName('body')[0];
+    return bodyContent ? bodyContent.innerHTML : htmlString;
   } catch (error) {
     console.error('Error processing HTML:', error);
     return htmlString; // Return original if error
