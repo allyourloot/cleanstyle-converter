@@ -1,3 +1,4 @@
+
 import { DOMParser } from '@xmldom/xmldom';
 
 export const processHTML = (htmlString: string): string => {
@@ -9,12 +10,12 @@ export const processHTML = (htmlString: string): string => {
       return '';
     }
     
-    // Wrap content in a root div with a doctype to satisfy xmldom requirements
-    const wrappedHTML = `<!DOCTYPE html><div class="root-wrapper">${htmlString}</div>`;
+    // Create a proper HTML document structure
+    const wrappedHTML = `<!DOCTYPE html><html><body><div class="root-wrapper">${htmlString}</div></body></html>`;
     const parser = new DOMParser();
     const doc = parser.parseFromString(wrappedHTML, 'text/html');
     
-    if (!doc) {
+    if (!doc || !doc.documentElement) {
       console.error('Failed to parse HTML document');
       return '';
     }
@@ -44,29 +45,51 @@ export const processHTML = (htmlString: string): string => {
       }
     };
     
-    // Get the root wrapper and clean all its children
-    const rootWrapper = doc.documentElement;
-    if (!rootWrapper) {
-      console.error('Could not find root element');
+    // Find the wrapper div using DOM traversal instead of getElementsByClassName
+    let rootWrapperDiv: Element | null = null;
+    const findWrapperDiv = (element: Element): void => {
+      if (!element) return;
+      
+      // Check if current element is the wrapper
+      if (element.attributes && element.getAttribute('class') === 'root-wrapper') {
+        rootWrapperDiv = element;
+        return;
+      }
+      
+      // Check children
+      if (element.childNodes) {
+        const children = Array.from(element.childNodes);
+        children.forEach(child => {
+          if (child && child.nodeType === 1 && !rootWrapperDiv) { // Element node
+            findWrapperDiv(child as Element);
+          }
+        });
+      }
+    };
+    
+    // Start search from document element
+    findWrapperDiv(doc.documentElement);
+    
+    if (!rootWrapperDiv) {
+      console.error('Could not find root wrapper element');
       return '';
     }
     
-    const allElements = rootWrapper.getElementsByTagName('*');
-    if (allElements) {
-      Array.from(allElements).forEach(cleanElement);
+    // Clean all elements inside the wrapper
+    if (rootWrapperDiv.childNodes) {
+      const children = Array.from(rootWrapperDiv.childNodes);
+      children.forEach(child => {
+        if (child && child.nodeType === 1) { // Element node
+          cleanElement(child as Element);
+        }
+      });
     }
     
-    // Get the processed content from inside the wrapper
-    const wrapperDiv = rootWrapper.getElementsByClassName('root-wrapper')[0];
-    const result = wrapperDiv ? wrapperDiv.innerHTML : '';
+    // Get the processed content
+    const result = rootWrapperDiv.innerHTML || '';
     
-    console.log('HTML processed successfully. Result length:', result ? result.length : 0);
-    
-    if (!result || result.trim() === '') {
-      console.error('processHTML returned empty content despite successful processing');
-    }
-    
-    return result || '';
+    console.log('HTML processed successfully. Result length:', result.length);
+    return result;
   } catch (error) {
     console.error('Error in processHTML:', error);
     throw error;
@@ -82,12 +105,12 @@ export const generateStyledHTML = (htmlString: string): string => {
     
     console.log('Styling HTML input, length:', htmlString.length);
     
-    // Wrap with doctype for proper parsing
-    const wrappedHTML = `<!DOCTYPE html><div class="root-wrapper">${htmlString}</div>`;
+    // Create a proper HTML document structure
+    const wrappedHTML = `<!DOCTYPE html><html><body><div class="root-wrapper">${htmlString}</div></body></html>`;
     const parser = new DOMParser();
     const doc = parser.parseFromString(wrappedHTML, 'text/html');
     
-    if (!doc) {
+    if (!doc || !doc.documentElement) {
       console.error('Failed to parse HTML for styling');
       return '';
     }
@@ -104,35 +127,52 @@ export const generateStyledHTML = (htmlString: string): string => {
       'embed': 'max-w-full'
     };
     
-    // Apply styles to elements
-    const rootWrapper = doc.documentElement;
-    if (!rootWrapper) {
-      console.error('Could not find root element for styling');
-      return '';
-    }
-    
-    Object.entries(elementStyles).forEach(([tag, className]) => {
-      const elements = rootWrapper.getElementsByTagName(tag);
-      if (elements) {
-        Array.from(elements).forEach(element => {
-          if (element) {
-            element.setAttribute('class', className);
+    // Find the wrapper div using DOM traversal instead of getElementsByClassName
+    let rootWrapperDiv: Element | null = null;
+    const findWrapperDiv = (element: Element): void => {
+      if (!element) return;
+      
+      // Check if current element is the wrapper
+      if (element.attributes && element.getAttribute('class') === 'root-wrapper') {
+        rootWrapperDiv = element;
+        return;
+      }
+      
+      // Check children
+      if (element.childNodes) {
+        const children = Array.from(element.childNodes);
+        children.forEach(child => {
+          if (child && child.nodeType === 1 && !rootWrapperDiv) { // Element node
+            findWrapperDiv(child as Element);
           }
         });
       }
-    });
+    };
     
-    // Get the styled content from inside the wrapper
-    const wrapperDiv = rootWrapper.getElementsByClassName('root-wrapper')[0];
-    const result = wrapperDiv ? wrapperDiv.innerHTML : '';
+    // Start search from document element
+    findWrapperDiv(doc.documentElement);
     
-    console.log('HTML styled successfully. Result length:', result ? result.length : 0);
-    
-    if (!result || result.trim() === '') {
-      console.error('generateStyledHTML returned empty content despite successful processing');
+    if (!rootWrapperDiv) {
+      console.error('Could not find root wrapper element for styling');
+      return '';
     }
     
-    return result || '';
+    // Apply styles to elements
+    Object.entries(elementStyles).forEach(([tag, className]) => {
+      // Use getElementsByTagName directly on the found wrapper div
+      const elements = Array.from(doc.getElementsByTagName(tag) || []);
+      elements.forEach(element => {
+        if (element && rootWrapperDiv?.contains(element)) {
+          element.setAttribute('class', className);
+        }
+      });
+    });
+    
+    // Get the styled content
+    const result = rootWrapperDiv.innerHTML || '';
+    
+    console.log('HTML styled successfully. Result length:', result.length);
+    return result;
   } catch (error) {
     console.error('Error in generateStyledHTML:', error);
     throw error;
@@ -146,24 +186,29 @@ export const debugHTMLStructure = (htmlString: string): string => {
       return 'Empty HTML input';
     }
     
+    const wrappedHTML = `<!DOCTYPE html><html><body>${htmlString}</body></html>`;
     const parser = new DOMParser();
-    const doc = parser.parseFromString(htmlString, 'text/html');
+    const doc = parser.parseFromString(wrappedHTML, 'text/html');
     
-    if (!doc) {
+    if (!doc || !doc.documentElement) {
       return 'Failed to parse HTML document';
     }
     
     // Simple function to get element structure
     const getStructure = (element: Element, depth = 0): string => {
+      if (!element) return '';
+      
       const indent = ' '.repeat(depth * 2);
       let result = `${indent}<${element.tagName}`;
       
       // Add attributes info
-      if (element.attributes.length > 0) {
+      if (element.attributes && element.attributes.length > 0) {
         result += ' attributes: [';
         for (let i = 0; i < element.attributes.length; i++) {
-          result += `${element.attributes[i].name}`;
-          if (i < element.attributes.length - 1) result += ', ';
+          if (element.attributes[i]) {
+            result += `${element.attributes[i].name}`;
+            if (i < element.attributes.length - 1) result += ', ';
+          }
         }
         result += ']';
       }
@@ -171,14 +216,16 @@ export const debugHTMLStructure = (htmlString: string): string => {
       result += '>\n';
       
       // Process children
-      for (let i = 0; i < element.childNodes.length; i++) {
-        const child = element.childNodes[i];
-        if (child.nodeType === 1) { // Element node
-          result += getStructure(child as Element, depth + 1);
-        } else if (child.nodeType === 3) { // Text node
-          const text = child.nodeValue?.trim();
-          if (text && text.length > 0) {
-            result += `${indent}  "${text.substring(0, 20)}${text.length > 20 ? '...' : ''}"\n`;
+      if (element.childNodes) {
+        for (let i = 0; i < element.childNodes.length; i++) {
+          const child = element.childNodes[i];
+          if (child && child.nodeType === 1) { // Element node
+            result += getStructure(child as Element, depth + 1);
+          } else if (child && child.nodeType === 3) { // Text node
+            const text = child.nodeValue?.trim();
+            if (text && text.length > 0) {
+              result += `${indent}  "${text.substring(0, 20)}${text.length > 20 ? '...' : ''}"\n`;
+            }
           }
         }
       }
@@ -186,7 +233,9 @@ export const debugHTMLStructure = (htmlString: string): string => {
       return result;
     };
     
-    return getStructure(doc.documentElement);
+    // Start from body to skip doctype and html elements
+    const bodyElement = doc.getElementsByTagName('body')[0];
+    return bodyElement ? getStructure(bodyElement.childNodes[0] as Element) : 'No content found';
   } catch (error) {
     return `Error debugging HTML: ${error}`;
   }
