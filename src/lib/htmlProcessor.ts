@@ -25,8 +25,9 @@ export const processHTML = (htmlString: string): string => {
       if (!node) return;
       
       if (isElementNode(node)) {
-        if (node.hasAttribute && node.hasAttribute('style')) {
-          node.removeAttribute('style');
+        const element = node as Element;
+        if (element.hasAttribute && element.hasAttribute('style')) {
+          element.removeAttribute('style');
         }
         
         Array.from(node.childNodes || []).forEach(child => processNode(child));
@@ -67,11 +68,13 @@ export const generateStyledHTML = (htmlString: string): string => {
     }
     
     const addStyles = (node: Node) => {
-      if (!node || node.nodeType !== 1) return;
+      if (!node) return;
       
-      applyElementStyles(node as Element);
-      
-      Array.from(node.childNodes || []).forEach(child => addStyles(child));
+      if (isElementNode(node)) {
+        applyElementStyles(node as Element);
+        
+        Array.from(node.childNodes || []).forEach(child => addStyles(child));
+      }
     };
     
     Array.from(body.childNodes || []).forEach(child => addStyles(child));
@@ -92,4 +95,3 @@ export const generateStyledHTML = (htmlString: string): string => {
 };
 
 export { debugHTMLStructure };
-

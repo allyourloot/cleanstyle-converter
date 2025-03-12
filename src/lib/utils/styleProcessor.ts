@@ -7,8 +7,8 @@ export const applyElementStyles = (node: Element): void => {
   switch (tagName) {
     case 'embed':
     case 'iframe':
-      if (node.parentNode) {
-        node.parentNode.setAttribute('class', 'responsive-embed mb-6');
+      if (node.parentNode && node.parentNode.nodeType === 1) {
+        (node.parentNode as Element).setAttribute('class', 'responsive-embed mb-6');
       }
       break;
     case 'h1':
@@ -63,4 +63,3 @@ export const applyElementStyles = (node: Element): void => {
       break;
   }
 };
-
