@@ -1,342 +1,128 @@
-
 import { DOMParser } from '@xmldom/xmldom';
-
-// Helper to check if text contains product specifications
-const hasProductSpecifications = (text: string): boolean => {
-  if (!text) return false;
-  const lowerText = text.toLowerCase();
-  return (
-    lowerText.includes('product specifications') ||
-    lowerText.includes('specifications') ||
-    lowerText.includes('tech specs') ||
-    lowerText.includes('technical specifications')
-  );
-};
-
-// Convert a list to a table when it contains specifications
-const convertSpecListToTable = (listElement: Element): HTMLTableElement => {
-  const document = listElement.ownerDocument;
-  const table = document.createElement('table');
-  const tbody = document.createElement('tbody');
-  
-  // Create table header
-  const thead = document.createElement('thead');
-  const headerRow = document.createElement('tr');
-  const nameHeader = document.createElement('th');
-  nameHeader.textContent = 'Specification';
-  const valueHeader = document.createElement('th');
-  valueHeader.textContent = 'Value';
-  headerRow.appendChild(nameHeader);
-  headerRow.appendChild(valueHeader);
-  thead.appendChild(headerRow);
-  table.appendChild(thead);
-  
-  // Process list items
-  const items = listElement.getElementsByTagName('li');
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    const text = item.textContent || '';
-    
-    // Try to split by common separators
-    let parts = [];
-    if (text.includes(':')) {
-      parts = text.split(':', 2);
-    } else if (text.includes('-')) {
-      parts = text.split('-', 2);
-    } else if (text.includes('–')) {
-      parts = text.split('–', 2);
-    } else {
-      // If no separator found, use the whole text as the specification name
-      parts = [text, ''];
-    }
-    
-    const row = document.createElement('tr');
-    
-    const nameCell = document.createElement('td');
-    nameCell.textContent = parts[0].trim();
-    nameCell.setAttribute('data-label', 'Specification');
-    
-    const valueCell = document.createElement('td');
-    valueCell.textContent = parts.length > 1 ? parts[1].trim() : '';
-    valueCell.setAttribute('data-label', 'Value');
-    
-    row.appendChild(nameCell);
-    row.appendChild(valueCell);
-    tbody.appendChild(row);
-  }
-  
-  table.appendChild(tbody);
-  return table;
-};
 
 export const processHTML = (htmlString: string): string => {
   try {
-    console.log('Processing HTML input...');
+    console.log('Processing HTML input:', htmlString.slice(0, 100) + '...');
     
-    // Handle null or undefined input
-    if (!htmlString) {
-      console.error('HTML input is null or undefined');
+    if (!htmlString || htmlString.trim() === '') {
+      console.error('Empty HTML input');
       return '';
     }
     
-    // Trim the input
-    const trimmedHTML = htmlString.trim();
-    
-    // Handle empty input
-    if (trimmedHTML === '') {
-      console.error('HTML input is empty');
-      return '';
-    }
-    
-    // Create a DOM parser
     const parser = new DOMParser();
-    
-    // Wrap the HTML if it's not a complete document
-    let wrappedHTML = trimmedHTML;
-    if (!trimmedHTML.toLowerCase().startsWith('<!doctype html') && 
-        !trimmedHTML.toLowerCase().startsWith('<html')) {
-      wrappedHTML = `<body>${trimmedHTML}</body>`;
-    }
-    
-    // Parse the HTML
-    const doc = parser.parseFromString(wrappedHTML, 'text/html');
+    const doc = parser.parseFromString(`<body>${htmlString}</body>`, 'text/html');
     
     if (!doc) {
       console.error('Failed to parse HTML document');
       return '';
     }
     
-    // Remove all inline styles from all elements
+    // Function to clean an element of all attributes except specific ones to keep
+    const cleanElement = (element: Element) => {
+      const attributesToKeep = ['src', 'width', 'height', 'type']; // Keep essential attributes for embeds
+      
+      // Get all attribute names
+      const attributes = element.attributes;
+      const attributesToRemove = [];
+      
+      // First collect attributes to remove
+      for (let i = 0; i < attributes.length; i++) {
+        const attr = attributes[i];
+        if (!attributesToKeep.includes(attr.name)) {
+          attributesToRemove.push(attr.name);
+        }
+      }
+      
+      // Then remove them
+      attributesToRemove.forEach(attrName => {
+        element.removeAttribute(attrName);
+      });
+      
+      // Clean child elements recursively
+      const children = element.childNodes;
+      for (let i = 0; i < children.length; i++) {
+        const child = children[i];
+        if (child.nodeType === 1) { // Element node
+          cleanElement(child as Element);
+        }
+      }
+    };
+    
+    // Clean all elements
     const allElements = doc.getElementsByTagName('*');
     for (let i = 0; i < allElements.length; i++) {
-      const element = allElements[i];
-      if (element.removeAttribute) {
-        element.removeAttribute('style');
-        element.removeAttribute('class');
-        element.removeAttribute('id');
-        // Remove any other non-essential attributes
-        const attributesToRemove = ['align', 'bgcolor', 'border', 'cellpadding', 'cellspacing', 'width', 'height'];
-        attributesToRemove.forEach(attr => {
-          element.removeAttribute(attr);
-        });
-      }
+      cleanElement(allElements[i]);
     }
     
-    // Find product specification sections and convert lists to tables
-    let headings = doc.getElementsByTagName('h2');
-    if (headings.length === 0) {
-      headings = doc.getElementsByTagName('h1');
-    }
-    if (headings.length === 0) {
-      headings = doc.getElementsByTagName('h3');
-    }
-    
-    for (let i = 0; i < headings.length; i++) {
-      const heading = headings[i];
-      if (heading.textContent && hasProductSpecifications(heading.textContent)) {
-        // Look for the next list after this heading
-        let nextElement = heading.nextSibling;
-        while (nextElement) {
-          if (nextElement.nodeName && 
-              (nextElement.nodeName.toLowerCase() === 'ul' || 
-               nextElement.nodeName.toLowerCase() === 'ol')) {
-            // Found a list, convert it to a table
-            const table = convertSpecListToTable(nextElement as Element);
-            if (nextElement.parentNode) {
-              nextElement.parentNode.replaceChild(table, nextElement);
-            }
-            break;
-          }
-          nextElement = nextElement.nextSibling;
-        }
-      }
-    }
-    
-    // Look for specification lists that might not have headings
-    const lists = doc.getElementsByTagName('ul');
-    for (let i = 0; i < lists.length; i++) {
-      const list = lists[i];
-      const prevElement = list.previousSibling;
-      
-      // Check if it's likely a specification list
-      let isSpecList = false;
-      
-      // Check if previous element contains spec-related text
-      if (prevElement && prevElement.textContent && hasProductSpecifications(prevElement.textContent)) {
-        isSpecList = true;
-      }
-      
-      // Otherwise check the list items for common spec patterns
-      if (!isSpecList) {
-        const items = list.getElementsByTagName('li');
-        let specPatternCount = 0;
-        
-        for (let j = 0; j < items.length; j++) {
-          const text = items[j].textContent || '';
-          if (text.includes(':') || text.includes(' - ') || text.match(/^[\w\s]+ \d+/)) {
-            specPatternCount++;
-          }
-        }
-        
-        // If more than half the items follow a spec pattern, consider it a spec list
-        isSpecList = items.length > 0 && (specPatternCount / items.length) > 0.5;
-      }
-      
-      if (isSpecList) {
-        const table = convertSpecListToTable(list);
-        if (list.parentNode) {
-          list.parentNode.replaceChild(table, list);
-          i--; // Adjust for the removed element
-        }
-      }
-    }
-    
-    // Find existing tables and process them
-    const tables = doc.getElementsByTagName('table');
-    for (let i = 0; i < tables.length; i++) {
-      const table = tables[i];
-      // Ensure the table has a clean structure
-      table.removeAttribute('style');
-      table.removeAttribute('class');
-      table.removeAttribute('width');
-      table.removeAttribute('border');
-      table.removeAttribute('cellspacing');
-      table.removeAttribute('cellpadding');
-    }
-    
-    // Get the body content
+    // Get the processed content
     const bodyContent = doc.getElementsByTagName('body')[0];
+    const result = bodyContent ? bodyContent.innerHTML : '';
     
-    if (!bodyContent) {
-      console.error('No body element found in the document');
-      return '';
-    }
-    
-    const result = bodyContent.innerHTML;
-    console.log('HTML processed: ' + (result ? 'Success' : 'Empty result'));
-    return result || '';
+    console.log('HTML processed successfully');
+    return result;
   } catch (error) {
-    console.error('Error processing HTML:', error);
-    return ''; // Return empty string if error
+    console.error('Error in processHTML:', error);
+    throw error;
   }
 };
 
-// Generate HTML with applied styling classes
 export const generateStyledHTML = (htmlString: string): string => {
   try {
-    // Handle null, undefined or empty input
-    if (!htmlString) {
-      console.error('HTML input for styling is null or undefined');
+    if (!htmlString || htmlString.trim() === '') {
+      console.error('Empty HTML input for styling');
       return '';
     }
     
-    const trimmedHTML = htmlString.trim();
-    if (trimmedHTML === '') {
-      console.error('HTML input for styling is empty');
-      return '';
-    }
-    
-    console.log('Generating styled HTML...');
-    
-    // Create a DOM parser
     const parser = new DOMParser();
-    
-    // Wrap the HTML in a body tag if it doesn't have one
-    let wrappedHTML = trimmedHTML;
-    if (!trimmedHTML.toLowerCase().startsWith('<!doctype html') && 
-        !trimmedHTML.toLowerCase().startsWith('<html')) {
-      wrappedHTML = `<body>${trimmedHTML}</body>`;
-    }
-    
-    // Parse the HTML
-    const doc = parser.parseFromString(wrappedHTML, 'text/html');
+    const doc = parser.parseFromString(`<body>${htmlString}</body>`, 'text/html');
     
     if (!doc) {
-      console.error('Failed to parse HTML document for styling');
+      console.error('Failed to parse HTML for styling');
       return '';
     }
     
-    // Apply class to the root to get our CSS styling
-    const body = doc.getElementsByTagName('body')[0];
-    if (!body) {
-      console.error('No body element found in the document for styling');
-      return '';
+    // Add classes for styling
+    const elementStyles: { [key: string]: string } = {
+      'body': 'html-preview',
+      'h1': 'text-4xl font-bold mb-6 font-montserrat',
+      'h2': 'text-2xl font-semibold mb-4 mt-8 font-montserrat',
+      'p': 'mb-4 leading-relaxed',
+      'table': 'w-full border-collapse mb-8',
+      'td': 'border px-4 py-2',
+      'th': 'border px-4 py-2 bg-gray-50 font-semibold',
+      'center': 'flex justify-center mb-6'
+    };
+    
+    // Apply styles to elements
+    Object.entries(elementStyles).forEach(([tag, className]) => {
+      const elements = doc.getElementsByTagName(tag);
+      for (let i = 0; i < elements.length; i++) {
+        elements[i].setAttribute('class', className);
+      }
+    });
+    
+    // Special handling for embedded content
+    const embeds = doc.getElementsByTagName('embed');
+    for (let i = 0; i < embeds.length; i++) {
+      const embed = embeds[i];
+      // Preserve essential attributes for embeds
+      const src = embed.getAttribute('src');
+      const width = embed.getAttribute('width');
+      const height = embed.getAttribute('height');
+      embed.setAttribute('class', 'max-w-full');
+      if (src) embed.setAttribute('src', src);
+      if (width) embed.setAttribute('width', width);
+      if (height) embed.setAttribute('height', height);
     }
     
-    body.setAttribute('class', 'html-preview');
+    // Get the styled content
+    const bodyContent = doc.getElementsByTagName('body')[0];
+    const result = bodyContent ? bodyContent.innerHTML : '';
     
-    // Process existing tables to ensure they have data-label attributes
-    const tables = doc.getElementsByTagName('table');
-    for (let i = 0; i < tables.length; i++) {
-      const table = tables[i];
-      table.setAttribute('class', 'specifications-table');
-      
-      // Get header cells - from thead if exists, otherwise first row
-      let headerCells: HTMLCollectionOf<Element> | Element[] = [];
-      const thead = table.getElementsByTagName('thead')[0];
-      if (thead) {
-        headerCells = thead.getElementsByTagName('th');
-      } else {
-        const firstRow = table.getElementsByTagName('tr')[0];
-        if (firstRow) {
-          headerCells = firstRow.getElementsByTagName('th').length > 0 ? 
-                      firstRow.getElementsByTagName('th') : 
-                      firstRow.getElementsByTagName('td');
-        }
-      }
-      
-      // Extract header texts
-      const headerTexts: string[] = [];
-      for (let j = 0; j < headerCells.length; j++) {
-        headerTexts.push(headerCells[j].textContent || `Column ${j+1}`);
-      }
-      
-      // If no header row was found, create default header texts
-      if (headerTexts.length === 0 && table.getElementsByTagName('tr').length > 0) {
-        const firstRowCells = table.getElementsByTagName('tr')[0].getElementsByTagName('td');
-        for (let j = 0; j < firstRowCells.length; j++) {
-          headerTexts.push(`Column ${j+1}`);
-        }
-      }
-      
-      // Apply data-label to each cell in data rows
-      const rows = table.getElementsByTagName('tr');
-      const startRow = thead ? 0 : 1; // Skip first row if no thead and first row used as header
-      
-      for (let j = startRow; j < rows.length; j++) {
-        const cells = rows[j].getElementsByTagName('td');
-        for (let k = 0; k < cells.length; k++) {
-          if (k < headerTexts.length) {
-            cells[k].setAttribute('data-label', headerTexts[k]);
-          }
-        }
-      }
-    }
-    
-    // Enhance paragraphs for better styling
-    const paragraphs = doc.getElementsByTagName('p');
-    for (let i = 0; i < paragraphs.length; i++) {
-      // Check if paragraph is indented or has specific formatting
-      const content = paragraphs[i].textContent || '';
-      if (content.trim().startsWith('-') || content.trim().startsWith('•')) {
-        paragraphs[i].setAttribute('class', 'feature-list-item');
-      }
-    }
-    
-    // Enhance headings
-    const headings = doc.querySelectorAll('h1, h2, h3, h4, h5, h6');
-    for (let i = 0; i < headings.length; i++) {
-      const heading = headings[i] as Element;
-      const level = heading.nodeName.toLowerCase().substring(1);
-      heading.setAttribute('class', `heading-${level}`);
-    }
-    
-    // Get the content
-    const content = body.innerHTML;
-    console.log('HTML styled: ' + (content ? 'Success' : 'Empty result'));
-    return content || '';
+    console.log('HTML styled successfully');
+    return result;
   } catch (error) {
-    console.error('Error generating styled HTML:', error);
-    return ''; // Return empty string if error
+    console.error('Error in generateStyledHTML:', error);
+    throw error;
   }
 };
