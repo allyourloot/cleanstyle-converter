@@ -3,9 +3,11 @@ import React, { useState, useEffect } from 'react';
 import HTMLConverter from '@/components/HTMLConverter';
 
 const Index = () => {
+  console.log('Index page rendering');
   const [mounted, setMounted] = useState(false);
   
   useEffect(() => {
+    console.log('Index page mounted');
     setMounted(true);
     return () => setMounted(false);
   }, []);
