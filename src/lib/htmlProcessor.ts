@@ -1,3 +1,4 @@
+
 import { DOMParser } from '@xmldom/xmldom';
 
 export const processHTML = (htmlString: string): string => {
@@ -9,52 +10,62 @@ export const processHTML = (htmlString: string): string => {
       return '';
     }
     
+    // Wrap the input in a container to ensure proper parsing
+    const wrappedHTML = `<div>${htmlString}</div>`;
     const parser = new DOMParser();
-    const doc = parser.parseFromString(htmlString, 'text/html');
-    
-    if (!doc || !doc.documentElement) {
-      console.error('Failed to parse HTML document');
-      return '';
-    }
+    const doc = parser.parseFromString(wrappedHTML, 'text/html');
     
     // Function to clean an element
-    const cleanElement = (element: Element) => {
-      if (!element || !element.attributes) return;
+    const cleanElement = (element: Element): void => {
+      if (!element) return;
       
-      // Remove style attribute
-      if (element.hasAttribute('style')) {
+      // Remove style attribute safely
+      if (element.hasAttribute && element.hasAttribute('style')) {
         element.removeAttribute('style');
       }
       
-      // Process child elements
-      const children = Array.from(element.childNodes || []);
-      children.forEach(child => {
-        if (child.nodeType === 1) { // Element node
+      // Process child elements recursively
+      const childNodes = element.childNodes || [];
+      for (let i = 0; i < childNodes.length; i++) {
+        const child = childNodes[i];
+        if (child && child.nodeType === 1) { // Element node
           cleanElement(child as Element);
         }
-      });
+      }
     };
     
-    // Clean the document starting from the root
-    const body = doc.documentElement.getElementsByTagName('body')[0];
-    if (body && body.childNodes) {
-      Array.from(body.childNodes).forEach(child => {
-        if (child.nodeType === 1) {
-          cleanElement(child as Element);
-        }
-      });
-    }
+    // Get the body or document element
+    const body = doc.getElementsByTagName('body')[0] || doc.documentElement;
     
-    // Get the processed content
-    const result = body ? body.innerHTML : '';
-    
-    if (!result || result.trim() === '') {
-      console.error('Processing resulted in empty content');
+    if (!body) {
+      console.error('No body element found');
       return '';
     }
     
-    console.log('HTML processed successfully. Result:', result);
-    return result;
+    // Get the content (our wrapped div)
+    const contentDiv = body.childNodes[0];
+    
+    if (!contentDiv) {
+      console.error('No content found in the body');
+      return '';
+    }
+    
+    // Clean all elements starting from our content div
+    cleanElement(contentDiv as Element);
+    
+    // Get the processed inner HTML
+    const result = contentDiv.toString();
+    
+    // Extract just the inner content from our wrapper div
+    const cleanedHTML = result.replace(/<div>|<\/div>/g, '').trim();
+    
+    if (!cleanedHTML || cleanedHTML.trim() === '') {
+      console.error('Cleaning resulted in empty content');
+      return '';
+    }
+    
+    console.log('HTML processed successfully. Result:', cleanedHTML);
+    return cleanedHTML;
   } catch (error) {
     console.error('Error in processHTML:', error);
     throw error;
@@ -68,69 +79,74 @@ export const generateStyledHTML = (htmlString: string): string => {
       return '';
     }
     
+    // Wrap the input in a container to ensure proper parsing
+    const wrappedHTML = `<div>${htmlString}</div>`;
     const parser = new DOMParser();
-    const doc = parser.parseFromString(htmlString, 'text/html');
-    
-    if (!doc || !doc.documentElement) {
-      console.error('Failed to parse HTML for styling');
-      return '';
-    }
+    const doc = parser.parseFromString(wrappedHTML, 'text/html');
     
     // Simple styling function
-    const addStyles = (element: Element) => {
+    const addStyles = (element: Element): void => {
       if (!element || !element.tagName) return;
       
       const tagName = element.tagName.toLowerCase();
-      switch (tagName) {
-        case 'h1':
-          element.setAttribute('class', 'text-4xl font-bold mb-6 font-montserrat');
-          break;
-        case 'h2':
-          element.setAttribute('class', 'text-2xl font-semibold mb-4 mt-8 font-montserrat');
-          break;
-        case 'p':
-          element.setAttribute('class', 'mb-4 leading-relaxed');
-          break;
-        case 'table':
-          element.setAttribute('class', 'w-full border-collapse mb-8');
-          break;
-        case 'td':
-          element.setAttribute('class', 'border px-4 py-2');
-          break;
-        case 'th':
-          element.setAttribute('class', 'border px-4 py-2 bg-gray-50 font-semibold');
-          break;
+      
+      // Apply classes based on tag name
+      if (tagName === 'h1') {
+        element.setAttribute('class', 'text-4xl font-bold mb-6 font-montserrat');
+      } else if (tagName === 'h2') {
+        element.setAttribute('class', 'text-2xl font-semibold mb-4 mt-8 font-montserrat');
+      } else if (tagName === 'p') {
+        element.setAttribute('class', 'mb-4 leading-relaxed');
+      } else if (tagName === 'table') {
+        element.setAttribute('class', 'w-full border-collapse mb-8');
+      } else if (tagName === 'td') {
+        element.setAttribute('class', 'border px-4 py-2');
+      } else if (tagName === 'th') {
+        element.setAttribute('class', 'border px-4 py-2 bg-gray-50 font-semibold');
       }
       
-      // Process children
-      const children = Array.from(element.childNodes || []);
-      children.forEach(child => {
-        if (child.nodeType === 1) {
+      // Process children recursively
+      const childNodes = element.childNodes || [];
+      for (let i = 0; i < childNodes.length; i++) {
+        const child = childNodes[i];
+        if (child && child.nodeType === 1) {
           addStyles(child as Element);
         }
-      });
+      }
     };
     
-    // Style the document
-    const body = doc.documentElement.getElementsByTagName('body')[0];
-    if (body && body.childNodes) {
-      Array.from(body.childNodes).forEach(child => {
-        if (child.nodeType === 1) {
-          addStyles(child as Element);
-        }
-      });
+    // Get the body or document element
+    const body = doc.getElementsByTagName('body')[0] || doc.documentElement;
+    
+    if (!body) {
+      console.error('No body element found for styling');
+      return '';
     }
     
-    // Get the styled content
-    const result = body ? body.innerHTML : '';
+    // Get the content (our wrapped div)
+    const contentDiv = body.childNodes[0];
     
-    if (!result || result.trim() === '') {
+    if (!contentDiv) {
+      console.error('No content found in the body for styling');
+      return '';
+    }
+    
+    // Add styles to all elements starting from our content div
+    addStyles(contentDiv as Element);
+    
+    // Get the styled inner HTML
+    const result = contentDiv.toString();
+    
+    // Extract just the inner content from our wrapper div
+    const styledHTML = result.replace(/<div>|<\/div>/g, '').trim();
+    
+    if (!styledHTML || styledHTML.trim() === '') {
       console.error('Styling resulted in empty content');
       return '';
     }
     
-    console.log('HTML styled successfully. Result:', result);
-    return result;
+    console.log('HTML styled successfully. Result:', styledHTML);
+    return styledHTML;
   } catch (error) {
     console.error('Error in generateStyledHTML:', error);
     throw error;
@@ -143,13 +159,9 @@ export const debugHTMLStructure = (htmlString: string): string => {
       return 'Empty HTML input';
     }
     
-    const wrappedHTML = `<!DOCTYPE html><html><body>${htmlString}</body></html>`;
+    const wrappedHTML = `<div>${htmlString}</div>`;
     const parser = new DOMParser();
     const doc = parser.parseFromString(wrappedHTML, 'text/html');
-    
-    if (!doc || !doc.documentElement) {
-      return 'Failed to parse HTML document';
-    }
     
     // Simple function to get element structure
     const getStructure = (element: Element, depth = 0): string => {
@@ -190,11 +202,22 @@ export const debugHTMLStructure = (htmlString: string): string => {
       return result;
     };
     
-    // Start from body to skip doctype and html elements
-    const bodyElement = doc.getElementsByTagName('body')[0];
-    return bodyElement ? getStructure(bodyElement.childNodes[0] as Element) : 'No content found';
+    // Get the first element (inside our wrapper div)
+    const body = doc.getElementsByTagName('body')[0] || doc.documentElement;
+    if (!body || !body.childNodes || body.childNodes.length === 0) {
+      return 'No content found';
+    }
+    
+    const contentDiv = body.childNodes[0];
+    if (!contentDiv || !contentDiv.childNodes || contentDiv.childNodes.length === 0) {
+      return 'No elements found inside wrapper';
+    }
+    
+    // Get the first actual content element
+    const firstElement = contentDiv.childNodes[0];
+    
+    return firstElement ? getStructure(firstElement as Element) : 'No elements found';
   } catch (error) {
     return `Error debugging HTML: ${error}`;
   }
 };
-
