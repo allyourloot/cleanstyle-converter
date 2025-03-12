@@ -1,4 +1,3 @@
-
 import { DOMParser } from '@xmldom/xmldom';
 
 export const processHTML = (htmlString: string): string => {
@@ -10,9 +9,10 @@ export const processHTML = (htmlString: string): string => {
       return '';
     }
     
-    // Use a wrapper to ensure proper parsing
+    // Wrap content in a root div with a doctype to satisfy xmldom requirements
+    const wrappedHTML = `<!DOCTYPE html><div class="root-wrapper">${htmlString}</div>`;
     const parser = new DOMParser();
-    const doc = parser.parseFromString(`<div>${htmlString}</div>`, 'text/html');
+    const doc = parser.parseFromString(wrappedHTML, 'text/html');
     
     if (!doc) {
       console.error('Failed to parse HTML document');
@@ -22,44 +22,35 @@ export const processHTML = (htmlString: string): string => {
     // Function to clean an element of all attributes except specific ones to keep
     const cleanElement = (element: Element) => {
       const attributesToKeep = ['src', 'width', 'height', 'type']; // Keep essential attributes for embeds
+      const attributes = Array.from(element.attributes);
       
-      // Get all attribute names
-      const attributes = element.attributes;
-      const attributesToRemove = [];
-      
-      // First collect attributes to remove
-      for (let i = 0; i < attributes.length; i++) {
-        const attr = attributes[i];
+      // Remove all attributes except those we want to keep
+      attributes.forEach(attr => {
         if (!attributesToKeep.includes(attr.name)) {
-          attributesToRemove.push(attr.name);
+          element.removeAttribute(attr.name);
         }
-      }
-      
-      // Then remove them
-      attributesToRemove.forEach(attrName => {
-        element.removeAttribute(attrName);
       });
       
       // Clean child elements recursively
-      const children = element.childNodes;
-      for (let i = 0; i < children.length; i++) {
-        const child = children[i];
+      const children = Array.from(element.childNodes);
+      children.forEach(child => {
         if (child.nodeType === 1) { // Element node
           cleanElement(child as Element);
         }
-      }
+      });
     };
     
-    // Clean all elements
-    const allElements = doc.getElementsByTagName('*');
-    for (let i = 0; i < allElements.length; i++) {
-      cleanElement(allElements[i]);
+    // Get the root wrapper and clean all its children
+    const rootWrapper = doc.documentElement.getElementsByClassName('root-wrapper')[0];
+    if (!rootWrapper) {
+      console.error('Could not find root wrapper element');
+      return '';
     }
     
-    // Get the processed content - we need to extract from the wrapper div
-    const wrapperDiv = doc.documentElement.getElementsByTagName('div')[0];
-    const result = wrapperDiv ? wrapperDiv.innerHTML : '';
+    Array.from(rootWrapper.getElementsByTagName('*')).forEach(cleanElement);
     
+    // Get the processed content from inside the wrapper
+    const result = rootWrapper.innerHTML;
     console.log('HTML processed successfully. Result length:', result.length);
     
     if (!result || result.trim() === '') {
@@ -82,9 +73,10 @@ export const generateStyledHTML = (htmlString: string): string => {
     
     console.log('Styling HTML input, length:', htmlString.length);
     
-    // Use a wrapper to ensure proper parsing
+    // Wrap with doctype for proper parsing
+    const wrappedHTML = `<!DOCTYPE html><div class="root-wrapper">${htmlString}</div>`;
     const parser = new DOMParser();
-    const doc = parser.parseFromString(`<div>${htmlString}</div>`, 'text/html');
+    const doc = parser.parseFromString(wrappedHTML, 'text/html');
     
     if (!doc) {
       console.error('Failed to parse HTML for styling');
@@ -103,18 +95,23 @@ export const generateStyledHTML = (htmlString: string): string => {
       'embed': 'max-w-full'
     };
     
+    // Get the root wrapper
+    const rootWrapper = doc.documentElement.getElementsByClassName('root-wrapper')[0];
+    if (!rootWrapper) {
+      console.error('Could not find root wrapper element for styling');
+      return '';
+    }
+    
     // Apply styles to elements
     Object.entries(elementStyles).forEach(([tag, className]) => {
-      const elements = doc.getElementsByTagName(tag);
-      for (let i = 0; i < elements.length; i++) {
-        elements[i].setAttribute('class', className);
-      }
+      const elements = rootWrapper.getElementsByTagName(tag);
+      Array.from(elements).forEach(element => {
+        element.setAttribute('class', className);
+      });
     });
     
-    // Get the styled content - extracting from the wrapper div
-    const wrapperDiv = doc.documentElement.getElementsByTagName('div')[0];
-    const result = wrapperDiv ? wrapperDiv.innerHTML : '';
-    
+    // Get the styled content from inside the wrapper
+    const result = rootWrapper.innerHTML;
     console.log('HTML styled successfully. Result length:', result.length);
     
     if (!result || result.trim() === '') {
