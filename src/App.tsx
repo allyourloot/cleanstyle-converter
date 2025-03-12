@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
+// Create a new QueryClient instance
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -17,19 +18,20 @@ const queryClient = new QueryClient({
   },
 });
 
+// The main App component that provides all context providers and routing
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Suspense fallback={<div>Loading...</div>}>
-        <BrowserRouter>
+      <BrowserRouter>
+        <Suspense fallback={<div>Loading...</div>}>
           <Toaster />
           <Sonner />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </BrowserRouter>
-      </Suspense>
+        </Suspense>
+      </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );

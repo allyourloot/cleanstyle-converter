@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
+// Make sure we find the root element
 const container = document.getElementById('root');
 
 if (!container) {
@@ -12,10 +13,9 @@ if (!container) {
 
 const root = createRoot(container);
 
-// Ensure app renders in StrictMode and with proper error boundaries
+// Render the app with proper error handling
 root.render(
   <StrictMode>
     <App />
   </StrictMode>
 );
-
