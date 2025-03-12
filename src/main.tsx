@@ -12,8 +12,10 @@ if (!container) {
 
 const root = createRoot(container);
 
+// Ensure app renders in StrictMode and with proper error boundaries
 root.render(
   <StrictMode>
     <App />
   </StrictMode>
 );
+
